@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -22,6 +22,7 @@ export default function Home() {
   const [hasMatch, setHasMatch] = useState(false);
   const [confidenceThreshold, setConfidenceThreshold] = useState(DEFAULT_CONFIDENCE);
   const [pollIntervalMs, setPollIntervalMs] = useState(DEFAULT_POLL_MS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const isPredictingRef = useRef(false);
 
@@ -173,154 +174,166 @@ export default function Home() {
   }, [captureAndPredict, hasMatch, isCameraOn, pollIntervalMs, status, target]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex items-center justify-center px-4 py-10 font-sans">
-      <main className="w-full max-w-5xl bg-zinc-900/60 border border-zinc-800 rounded-2xl shadow-xl p-6 md:p-10 flex flex-col gap-8">
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-              ASL Practice Quiz
-            </h1>
-            <p className="mt-2 text-sm md:text-base text-zinc-400 max-w-xl">
-              Show the sign for the highlighted letter or number in front of
-              your camera. We&apos;ll capture a snapshot and score how closely
-              it matches.
-            </p>
-          </div>
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 font-sans flex flex-col">
+      {/* Compact header overlay */}
+      <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-zinc-950/80 to-transparent">
+        <h1 className="text-xl font-semibold tracking-tight text-white/95">
+          ASL Quiz Mode
+        </h1>
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={nextQuestion}
-            className="inline-flex items-center justify-center rounded-full bg-zinc-50 text-zinc-900 px-5 py-2 text-sm font-medium hover:bg-white transition-colors"
+            className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors backdrop-blur-sm"
           >
             New Prompt
           </button>
-        </header>
+          {!isCameraOn ? (
+            <button
+              type="button"
+              onClick={startCamera}
+              className="rounded-full bg-emerald-500 text-emerald-950 px-4 py-2 text-sm font-medium hover:bg-emerald-400 transition-colors"
+            >
+              Enable Camera
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="rounded-full bg-zinc-700 text-zinc-100 px-4 py-2 text-sm font-medium hover:bg-zinc-600 transition-colors"
+            >
+              Turn Off Camera
+            </button>
+          )}
+        </div>
+      </header>
 
-        <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)] gap-8 items-start">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                Current prompt
-              </div>
-            </div>
-            <div className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900/60 py-10">
-              <span className="text-7xl md:text-8xl font-semibold tracking-tight">
+      {/* Main area: camera as hero */}
+      <main className="flex-1 flex flex-col min-h-0 relative">
+        {/* Large camera view — main focus */}
+        <div className="flex-1 flex items-center justify-center min-h-0 bg-zinc-900 p-2 md:p-4">
+          <div className="relative w-full max-w-5xl aspect-video max-h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-zinc-700/50 bg-black shadow-2xl">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Prompt + status badges */}
+            <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
+              <span className="inline-flex items-center justify-center rounded-md bg-black/60 px-3 py-1 text-xs font-medium uppercase tracking-wider text-zinc-300">
+                Prompt
+              </span>
+              <span className="inline-flex items-center justify-center rounded-md bg-white/90 text-zinc-900 text-2xl font-semibold w-10 h-10">
                 {target ?? "?"}
               </span>
             </div>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              {!isCameraOn ? (
-                <button
-                  type="button"
-                  onClick={startCamera}
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 text-emerald-950 px-5 py-2 text-sm font-medium hover:bg-emerald-400 transition-colors"
-                >
-                  Enable Camera
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={stopCamera}
-                  className="inline-flex items-center justify-center rounded-full bg-zinc-800 text-zinc-100 px-5 py-2 text-sm font-medium hover:bg-zinc-700 transition-colors"
-                >
-                  Turn Off Camera
-                </button>
-              )}
-            </div>
-
-            <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-4">
-              <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                Detection settings
-              </div>
-              <div>
-                <label className="flex items-center justify-between gap-2 text-sm text-zinc-300">
-                  <span>Match threshold: {Math.round(confidenceThreshold * 100)}%</span>
-                  <span className="text-zinc-500 text-xs">Only count as correct when confidence ≥ this</span>
-                </label>
-                <input
-                  type="range"
-                  min={MIN_CONFIDENCE}
-                  max={MAX_CONFIDENCE}
-                  step={0.05}
-                  value={confidenceThreshold}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfidenceThreshold(Number(e.target.value))}
-                  className="mt-1 w-full h-2 rounded-full appearance-none bg-zinc-700 accent-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="flex items-center justify-between gap-2 text-sm text-zinc-300">
-                  <span>Check every {pollIntervalMs} ms</span>
-                  <span className="text-zinc-500 text-xs">How often we send a frame to the model</span>
-                </label>
-                <input
-                  type="range"
-                  min={MIN_POLL_MS}
-                  max={MAX_POLL_MS}
-                  step={100}
-                  value={pollIntervalMs}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPollIntervalMs(Number(e.target.value))}
-                  className="mt-1 w-full h-2 rounded-full appearance-none bg-zinc-700 accent-emerald-500"
-                />
-              </div>
-            </div>
-
-            {status && (
-              <p className="mt-2 text-sm text-zinc-400" aria-live="polite">
-                {status}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl border border-zinc-800 bg-black/40 overflow-hidden">
-              <div className="px-4 py-2 flex items-center justify-between border-b border-zinc-800 bg-zinc-900/70">
-                <span className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                  Live camera
-                </span>
-                <span className="text-xs text-zinc-500">
-                  {isCameraOn ? "On" : "Off"}
-                </span>
-              </div>
-              <div className="aspect-video bg-zinc-950 flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="h-full w-full object-cover rounded-b-2xl"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 flex flex-col gap-3">
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    Your score
-                  </div>
-                  <div className="mt-1 text-3xl font-semibold tracking-tight">
-                    {score != null ? `${Math.round(score * 100)}%` : "—"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                    Model prediction
-                  </div>
-                  <div className="mt-1 text-lg font-medium">
-                    {predictedLabel ?? "—"}
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500">
-                Score is the model&apos;s confidence (MediaPipe Hands + classifier).
-                Adjust &quot;Match threshold&quot; and &quot;Check every&quot; above to tune behavior.
-              </p>
+            <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/50 text-xs uppercase tracking-wider text-zinc-400">
+              {isCameraOn ? "Live" : "Off"}
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Hidden canvas used for capturing a frame from the video */}
-        <canvas ref={canvasRef} className="hidden" />
+        {/* Bottom bar: status + score + prediction */}
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-900/95 border-t border-zinc-800">
+          <p className="text-sm text-zinc-400 min-w-0 truncate" aria-live="polite">
+            {status || (isCameraOn ? "Show the sign for the prompt." : "Enable the camera to start.")}
+          </p>
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Score</span>
+              <span className="ml-2 text-lg font-semibold tabular-nums">
+                {score != null ? `${Math.round(score * 100)}%` : "—"}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs uppercase tracking-wider text-zinc-500">Prediction</span>
+              <span className="ml-2 text-lg font-medium tabular-nums">
+                {predictedLabel ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
       </main>
+
+      {/* Click-away overlay for settings panel */}
+      {settingsOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/20"
+          onClick={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {/* Right-side settings: fixed panel + fixed tab */}
+      {/* Panel slides in from the right, tab always on the edge */}
+      <div
+        className={`fixed top-0 right-0 h-full w-72 bg-zinc-900/98 border-l border-zinc-700 shadow-xl overflow-y-auto transition-transform duration-300 ease-out z-30 ${
+          settingsOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="p-4 space-y-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+            Detection settings
+          </h2>
+          <div>
+            <label className="block text-sm text-zinc-300 mb-1">
+              Match threshold: {Math.round(confidenceThreshold * 100)}%
+            </label>
+            <p className="text-xs text-zinc-500 mb-2">
+              Only count as correct when confidence ≥ this
+            </p>
+            <input
+              type="range"
+              min={MIN_CONFIDENCE}
+              max={MAX_CONFIDENCE}
+              step={0.05}
+              value={confidenceThreshold}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setConfidenceThreshold(Number(e.target.value))
+              }
+              className="w-full h-2 rounded-full appearance-none bg-zinc-700 accent-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-zinc-300 mb-1">
+              Check every {pollIntervalMs} ms
+            </label>
+            <p className="text-xs text-zinc-500 mb-2">
+              How often we send a frame to the model
+            </p>
+            <input
+              type="range"
+              min={MIN_POLL_MS}
+              max={MAX_POLL_MS}
+              step={100}
+              value={pollIntervalMs}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setPollIntervalMs(Number(e.target.value))
+              }
+              className="w-full h-2 rounded-full appearance-none bg-zinc-700 accent-emerald-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tab button: invisible until hovered, width just fits the arrow tip */}
+      <button
+        type="button"
+        onClick={() => setSettingsOpen((o) => !o)}
+        className="fixed right-0 top-0 h-full w-10 flex items-center justify-center bg-transparent hover:bg-black/40 z-40 transition-colors duration-200 ease-out group"
+        aria-label={settingsOpen ? "Close settings" : "Open settings"}
+      >
+        <span
+          className={`inline-block text-3xl text-zinc-200/85 group-hover:text-zinc-50 drop-shadow-md tracking-wide transition-all duration-200 ${
+            settingsOpen ? "rotate-180" : ""
+          }`}
+          aria-hidden
+        >
+          ‹
+        </span>
+      </button>
+
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
