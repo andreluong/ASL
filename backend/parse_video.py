@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from hand_cm import Hand_Video_cm
 
-TARGET_FPS = 16
+TARGET_FPS = 8
 
 def extract_from_video(video_path):
     cap = cv.VideoCapture(video_path)
@@ -49,7 +49,7 @@ def augment(sequence):
     noise = np.random.normal(0, 0.01, sequence.shape)
     return sequence + noise
 
-def build_dataset(videos_dir="videos_top20", output_path="landmarks.pkl"):
+def build_dataset(videos_dir="videos_top10", output_path="landmarks.pkl"):
     data = []
     videos_path = Path(videos_dir)
 
@@ -62,9 +62,14 @@ def build_dataset(videos_dir="videos_top20", output_path="landmarks.pkl"):
 
         for video_path in videos:
             sequence = extract_from_video(str(video_path))
-            if sequence is not None and len(sequence) > 0:
-                data.append({"landmarks": sequence, "label": label})
-                data.append({"landmarks": augment(sequence), "label": label})  # augmented copy
+            if sequence is None or len(sequence) == 0:
+                continue
+
+            # Original
+            data.append({"landmarks": sequence, "label": label})
+            # Augmented copies
+            aug1 = augment(sequence)
+            data.append({"landmarks": aug1, "label": label})
 
     with open(output_path, "wb") as f:
         pickle.dump(data, f)

@@ -80,6 +80,9 @@ def train(data_path="landmarks.pkl", epochs=200, lr=5e-4):
 
     model = ASLSignLSTM(num_classes=len(labels))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=10
+    )
     criterion = nn.CrossEntropyLoss()
 
     for epoch in range(epochs):
@@ -90,8 +93,10 @@ def train(data_path="landmarks.pkl", epochs=200, lr=5e-4):
             logits = model(seqs, lengths)
             loss = criterion(logits, lbls)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             total_loss += loss.item()
+        scheduler.step(total_loss / len(train_loader))
 
         # Validation
         model.eval()
@@ -102,7 +107,8 @@ def train(data_path="landmarks.pkl", epochs=200, lr=5e-4):
                 correct += (preds == lbls).sum().item()
         
         acc = correct / len(val_data)
-        print(f"Epoch {epoch+1}/{epochs}  loss={total_loss/len(train_loader):.4f}  val_acc={acc:.2%}")
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"Epoch {epoch+1}/{epochs}  loss={total_loss/len(train_loader):.4f}  val_acc={acc:.2%}  lr={current_lr:.2e}")
 
     torch.save(model.state_dict(), "asl_lstm.pt")
     print("Saved model to asl_lstm.pt")

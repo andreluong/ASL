@@ -258,8 +258,15 @@ def predict_word_snapshot():
     # Extract landmarks from the incoming frame
     img_bgr = decode_data_url_to_image(image_data)
     landmarks = get_hand_landmarks_vector(img_bgr) if img_bgr is not None else None
-    # Use zeros if no hand detected so we don't stall the buffer
-    buf.append(landmarks if landmarks is not None else np.zeros(63, dtype=np.float32))
+    if landmarks is None:
+        return jsonify({
+            "ready": False,
+            "locked": False,
+            "frames_collected": len(buf),
+            "frames_needed": SEQUENCE_LENGTH,
+            "no_hand": True
+        })
+    buf.append(landmarks)
 
     # Not enough frames yet
     if len(buf) < SEQUENCE_LENGTH:
