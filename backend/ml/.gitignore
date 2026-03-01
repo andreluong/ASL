@@ -1,1 +1,3 @@
 .env
+asl_model.pth
+hand_landmarker.task
