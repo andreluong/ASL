@@ -13,12 +13,16 @@ interface Sign {
 	learned?: boolean
 }
 
+const MODAL_STEP = {
+  INFO: "info",
+  PRACTICE: "practice",
+} as const
+
+type ModalStep = typeof MODAL_STEP[keyof typeof MODAL_STEP]
+
 export default function LearnMode() {
-	const INFO = "info"
-	const PRACTICE = "practice"
-	
 	const [selected, setSelected] = React.useState<Sign | null>(null)
-	const [modalStep, setModalStep] = React.useState<'info' | 'practice'>(INFO)
+	const [modalStep, setModalStep] = React.useState<ModalStep>(MODAL_STEP.INFO)
 	const [instructions, setInstructions] = useState<string | null>(null)
 	const [loadingInstructions, setLoadingInstructions] = useState(false)
 	const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -65,7 +69,7 @@ export default function LearnMode() {
 			intervalRef.current = null
 		}
 		setSelected(null)
-		setModalStep(INFO)
+		setModalStep(MODAL_STEP.INFO)
 	}
 
 	const getPromptForSign = (sign: Sign) => {
@@ -202,7 +206,7 @@ export default function LearnMode() {
             onClick={(e) => e.stopPropagation()}
           >
   
-            {modalStep === INFO ? (
+            {modalStep === MODAL_STEP.INFO ? (
               <>
 								<button
 									onClick={closeModal}
@@ -232,7 +236,7 @@ export default function LearnMode() {
 								</div>
 
                 <button
-                  onClick={() => setModalStep(PRACTICE)}
+                  onClick={() => setModalStep(MODAL_STEP.PRACTICE)}
                   className="mt-2 rounded-full bg-emerald-500 text-emerald-950 px-5 py-2 text-sm font-medium hover:bg-emerald-400 transition-colors"
                 >
                   Continue
@@ -243,7 +247,7 @@ export default function LearnMode() {
                 <CameraFeed onStreamReady={handleStreamReady}>
 									{/* Back */}
 									<button
-										onClick={() => setModalStep(INFO)}
+										onClick={() => setModalStep(MODAL_STEP.INFO)}
 										className="absolute top-3 left-3 z-10 rounded-full bg-black/50 backdrop-blur-sm text-zinc-100 px-3 py-1.5 text-sm font-medium hover:bg-black/70 transition-colors"
 									>
 										← Back
