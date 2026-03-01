@@ -33,18 +33,23 @@ def main(argv=None):
     while True:
         ret, frame = cap.read()
         if not ret: break
-        # Save frame at the target rate
+        # Save frame at the target rate             
         if frame_count % frame_interval == 0:
             captured_frames.append(frame)
         frame_count += 1
 
     def print_res(landmark_res):
-        print(landmark_res)
-
+        hand_landmarks = landmark_res
+        # 21 landmarks, each (x, y, z) normalized
+        vec: list[float] = []
+        for lm in hand_landmarks:
+            vec.extend([lm.x, lm.y, lm.z])
+        return np.array(vec, dtype=np.float32)  
+        
     with Hand_Video_cm(print_res) as hand_cm:
         test = [hand_cm.detect(frame) for frame in captured_frames]
 
-    print(test)
+
     
 if __name__ == "__main__":
     main()    

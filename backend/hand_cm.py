@@ -34,7 +34,7 @@ class Hand_cm(ABC):
         self.landmarker.close()
 
     def detect(self, bgr_frame):
-        print('Detect called')
+        # print('Detect called')
         # Convert BGR (OpenCV) to RGB (MediaPipe expects)
         rgb_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(mp.ImageFormat.SRGB, rgb_frame)
@@ -50,7 +50,7 @@ class Hand_Live_cm(Hand_cm):
         self.running_mode=mp.tasks.vision.RunningMode.LIVE_STREAM
 
     def _detect_impl(self, mp_image):
-        print('detect impl called')
+        # print('detect impl called')
         timestamp = int(time.time() * 1000)
         if self.landmarker is None:
             print('landmarker is None')
