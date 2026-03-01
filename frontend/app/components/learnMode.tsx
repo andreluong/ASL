@@ -99,7 +99,7 @@ export default function LearnMode() {
 				setPredictedSign(json.prediction)
 				setConfidence(json.confidence)
 
-				if (json.confidence > 0.5 && json.prediction === selected?.label) {
+				if (json.confidence > 0.65 && json.prediction === selected?.label) {
 					// Update
 					setSigns((prev) =>
 						prev.map((s) => s.label === selected?.label ? { ...s, learned: true } : s)
@@ -264,10 +264,14 @@ export default function LearnMode() {
 									</div>
 									
 									{/* AI predicting labels and score */}
-									<div className="absolute bottom-3 right-3 z-10 px-4 py-2 rounded-full bg-black/60 backdrop-blur-sm text-sm whitespace-nowrap">
-										<span className="text-zinc-400">AI Prediction:</span>{" "}
-										<span className="text-white font-semibold">{predictedSign}</span>{" "}
-										<span className="text-green-400">({confidence ? (confidence * 100).toFixed(1) + '%' : '0%'})</span>
+									<div className="absolute bottom-3 right-3 z-10 px-5 py-3 rounded-2xl bg-black/70 backdrop-blur-sm whitespace-nowrap">
+										<span className="text-zinc-400 text-sm uppercase tracking-widest font-medium block text-center">AI Prediction</span>
+										<div className="flex items-center justify-center gap-3 mt-1">
+											<span className="text-white font-bold text-3xl">{predictedSign}</span>
+											<span className="text-green-400 font-semibold text-xl">
+												{confidence ? (confidence * 100).toFixed(1) + '%' : '0%'}
+											</span>
+										</div>
 									</div>
 																		
 								</CameraFeed>
