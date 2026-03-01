@@ -40,8 +40,6 @@ def main(argv=None):
                 with open(output+'savegame.pkl', 'wb') as f:
                     pickle.dump(data, f)
 
-
-            hand_cm.detect()
         
 
 if __name__ == "__main__":
