@@ -5,14 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
 
 // Must match the words your LSTM was trained on
-const WORDS = ["book", "drink", "go", "clothes", "who", "before", "yes", "no", "help", "chair", "all"];
+const WORDS = ["book", "go", "clothes", "who", "before", "yes", "no", "help", "chair", "all"];
 
 const MIN_CONFIDENCE = 0.5;
 const MAX_CONFIDENCE = 1;
-const MIN_POLL_MS = 300;
-const MAX_POLL_MS = 2000;
+const MIN_POLL_MS = 50;
+const MAX_POLL_MS = 250;
 const DEFAULT_CONFIDENCE = 0.9;
-const DEFAULT_POLL_MS = 800;
+const DEFAULT_POLL_MS = 50;
 
 type Mode = "letters" | "words";
 
@@ -176,10 +176,13 @@ export default function Home() {
         }
 
         if (!json.ready) {
-          // Still collecting frames — show a progress bar in the status
-          const pct = Math.round((json.frames_collected / json.frames_needed) * 100);
-          setCaptureProgress(pct);
-          setStatus(`Capturing... ${pct}%`);
+          if (json.no_hand) {
+              setStatus("No hand detected — show your hand to the camera.");
+          } else {
+              const pct = Math.round((json.frames_collected / json.frames_needed) * 100);
+              setCaptureProgress(pct);
+              setStatus(`Capturing... ${pct}%`);
+          }
           return;
         }
 
@@ -393,7 +396,7 @@ export default function Home() {
               type="range"
               min={MIN_POLL_MS}
               max={MAX_POLL_MS}
-              step={100}
+              step={25}
               value={pollIntervalMs}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setPollIntervalMs(Number(e.target.value))
