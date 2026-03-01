@@ -7,6 +7,7 @@ from collections import deque
 from typing import Tuple
 
 import cv2
+import time
 import mediapipe as mp
 import numpy as np
 import pickle
@@ -43,11 +44,12 @@ HAND_LANDMARKER: HandLandmarker | None = None
 if os.path.exists(HAND_LANDMARKER_MODEL_PATH):
     try:
         _options = HandLandmarkerOptions(
-            base_options=BaseOptions(
-                model_asset_path=HAND_LANDMARKER_MODEL_PATH
-            ),
-            running_mode=VisionRunningMode.IMAGE,
+            base_options=BaseOptions(model_asset_path=HAND_LANDMARKER_MODEL_PATH),
+            running_mode=VisionRunningMode.VIDEO,
             num_hands=1,
+            min_hand_detection_confidence=0.5,
+            min_hand_presence_confidence=0.5,
+            min_tracking_confidence=0.5
         )
         HAND_LANDMARKER = HandLandmarker.create_from_options(_options)
     except Exception:
@@ -101,7 +103,11 @@ def get_hand_landmarks_vector(img_bgr: np.ndarray) -> np.ndarray | None:
 
     rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-    results = HAND_LANDMARKER.detect(mp_image)
+    
+    # VIDEO mode requires a monotonically increasing timestamp in milliseconds
+    timestamp_ms = int(time.time() * 1000)
+    results = HAND_LANDMARKER.detect_for_video(mp_image, timestamp_ms)
+    
     if not results.hand_landmarks:
         return None
 
