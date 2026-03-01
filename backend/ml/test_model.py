@@ -1,5 +1,6 @@
 # Tests the model on a camera feed that shows its predicted character/word in real time
-# Uses pre-trained MediaPipe hand landmarker to detect and crop hand region before passing to model
+# Uses pre-trained MediaPipe hand landmarker
+# Applies a skeleton rendering of the hand as input to the model for prediction
 
 import cv2
 import torch
@@ -13,9 +14,9 @@ from torchvision import transforms, models
 from collections import deque
 
 # Configuration
-MODEL_PATH           = "backend/ml/asl_model.pth"
+MODEL_PATH           = "ml/asl_model.pth"
 HAND_LANDMARKER_URL  = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
-HAND_LANDMARKER_FILE = "backend/ml/hand_landmarker.task"
+HAND_LANDMARKER_FILE = "ml/hand_landmarker.task"
 IMG_SIZE             = 224
 CONFIDENCE           = 0.7 # Min confidence to show prediction
 SMOOTH_FRAMES        = 10  # Num of frames to smooth predictions over
@@ -37,10 +38,8 @@ print(f"- Model loaded | Gestures: {GESTURES}")
 # Transform
 transform = transforms.Compose([
     transforms.ToPILImage(),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406],
-                         [0.229, 0.224, 0.225]),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
 if not os.path.exists(HAND_LANDMARKER_FILE):
@@ -95,16 +94,19 @@ def crop_hand(frame, landmarks, padding=40):
 
     return frame[y1:y2, x1:x2], (x1, y1, x2, y2)
 
-def draw_skeleton(frame, landmarks):
-    h, w = frame.shape[:2]
+def draw_skeleton(surface, landmarks, size=None):
+    h, w = surface.shape[:2]
     points = [(int(lm.x * w), int(lm.y * h)) for lm in landmarks]
     for a, b in HAND_CONNECTIONS:
-        cv2.line(frame, points[a], points[b], (0, 180, 180), 2)
+        cv2.line(surface, points[a], points[b], (255, 255, 255), 2)
     for pt in points:
-        cv2.circle(frame, pt, 3, (0, 255, 255), -1)
+        cv2.circle(surface, pt, 3, (255, 255, 255), -1)
+    if size:
+        return cv2.resize(surface, size)
+    return surface
 
-def predict(crop):
-    tensor = transform(crop).unsqueeze(0).to(DEVICE)
+def predict(skeleton):
+    tensor = transform(skeleton).unsqueeze(0).to(DEVICE)
     with torch.no_grad():
         output = model(tensor)
         probs  = torch.softmax(output, dim=1)
@@ -148,13 +150,14 @@ while True:
 
     if result.hand_landmarks:
         for landmarks in result.hand_landmarks:
-            draw_skeleton(frame, landmarks)
+            canvas = np.zeros((frame.shape[0], frame.shape[1], 3), dtype=np.uint8)
+            skeleton = draw_skeleton(canvas, landmarks, size=(IMG_SIZE, IMG_SIZE))
+            label, confidence = predict(skeleton)
+            label = smooth_prediction(label)
 
-            crop, bbox = crop_hand(frame, landmarks)
-            if crop.size > 0:
-                label, confidence = predict(crop)
-                label = smooth_prediction(label)
-                draw_overlay(frame, label, confidence, bbox)
+            _, bbox = crop_hand(frame, landmarks)
+            draw_skeleton(frame, landmarks)
+            draw_overlay(frame, label, confidence, bbox)
     else:
         prediction_buffer.clear()
         cv2.putText(frame, "No hand detected", (20, 40),

@@ -1,70 +1,38 @@
 # Train pytorch model on ASL alphabet dataset
 
-import os
 import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, Subset, random_split
+from torch.utils.data import DataLoader, random_split
 from torchvision import transforms, models
 from torchvision.datasets import ImageFolder
-import kagglehub
 from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
 BATCH_SIZE    = 16
-EPOCHS        = 3
+EPOCHS        = 8
 LR_HEAD       = 1e-3
 LR_FULL       = 1e-5
-IMG_SIZE      = 224
 VAL_SPLIT     = 0.2
-MAX_PER_CLASS = 150
 DEVICE        = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-SAVE_PATH     = "backend/ml/asl_model.pth"
+SAVE_PATH     = "ml/asl_model.pth"
 
-# Dataset
-class imageDataset(Dataset):
-    def __init__(self, train_dir, transform=None):
-        raw = ImageFolder(train_dir, transform=transform)
-        
-        # Cap images per class
-        counts = {cls: 0 for cls in raw.classes}
-        subset_indices = []
-        for i, (_, label) in enumerate(raw.samples):
-            cls = raw.classes[label]
-            if counts[cls] < MAX_PER_CLASS:
-                subset_indices.append(i)
-                counts[cls] += 1
-        
-        self.dataset = Subset(raw, subset_indices)
-        print(f"ImageDataset: {len(self.dataset)} images | {counts}")
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        return self.dataset[idx]
-
-# Download and build dataset
-def download_dataset():
-    path = kagglehub.dataset_download("grassknoted/asl-alphabet")
-    print("Path to dataset files:", path)
-
-    train_dir = os.path.join(path, "asl_alphabet_train", "asl_alphabet_train")
+# Build dataset from preprocessed skeleton images
+def build_dataset():
+    train_dir = "ml/asl_alphabet_skeleton"
 
     # Augment data with randomness to improve generalization
     transform_train = transforms.Compose([
-        transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(10),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                             [0.229, 0.224, 0.225]),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    return imageDataset(train_dir, transform=transform_train)
+    dataset = ImageFolder(train_dir, transform=transform_train)
+    print(f"Dataset: {len(dataset)} images across {len(dataset.classes)} classes")
+    return dataset
 
 # Split dataset into training and validation sets and wrap in data loaders
 def prepare_dataloaders(dataset):
@@ -75,7 +43,7 @@ def prepare_dataloaders(dataset):
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
     val_loader   = DataLoader(val_set,   batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    print(f"Classes : {dataset.dataset.classes}")
+    print(f"Classes : {dataset.classes}")
     print(f"Train   : {train_size} | Val: {val_size}")
     
     return train_loader, val_loader
@@ -107,7 +75,7 @@ def run_epoch(loader, train=True, optimizer=None):
 
 
 # Main
-dataset = download_dataset()
+dataset = build_dataset()
 train_loader, val_loader = prepare_dataloaders(dataset)
 
 model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.DEFAULT)
@@ -131,7 +99,7 @@ for epoch in range(EPOCHS // 2):
     t0 = time.time()
     train_loss, train_acc = run_epoch(train_loader, train=True,  optimizer=optimizer)
     val_loss,   val_acc   = run_epoch(val_loader,   train=False)
-    print(f"Epoch {epoch+1:02d} | "
+    print(f"- Epoch {epoch+1:02d} | "
         f"Train loss: {train_loss:.4f} acc: {train_acc:.3f} | "
         f"Val loss: {val_loss:.4f} acc: {val_acc:.3f} | "
         f"{time.time()-t0:.1f}s")
@@ -149,7 +117,7 @@ for epoch in range(EPOCHS):
     t0 = time.time()
     train_loss, train_acc = run_epoch(train_loader, train=True,  optimizer=optimizer)
     val_loss,   val_acc   = run_epoch(val_loader,   train=False)
-    print(f"Epoch {epoch+1:02d} | "
+    print(f"- Epoch {epoch+1:02d} | "
           f"Train loss: {train_loss:.4f} acc: {train_acc:.3f} | "
           f"Val loss: {val_loss:.4f} acc: {val_acc:.3f} | "
           f"{time.time()-t0:.1f}s")
@@ -158,10 +126,10 @@ for epoch in range(EPOCHS):
         best_val_acc = val_acc
         torch.save({
             "model_state": model.state_dict(),
-            "gestures":    dataset.dataset.classes,
+            "gestures":    dataset.classes,
             "val_acc":     val_acc,
         }, SAVE_PATH)
-        print(f"- Saved best model (val_acc={val_acc:.3f})")
+        print(f"  - Saved best model (val_acc={val_acc:.3f})")
 
 print(f"\nDone! Best val accuracy: {best_val_acc:.3f}")
 print(f"Model saved to: {SAVE_PATH}")

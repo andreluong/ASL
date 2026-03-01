@@ -1,3 +1,4 @@
 .env
 asl_model.pth
 hand_landmarker.task
+asl_alphabet_skeleton/
