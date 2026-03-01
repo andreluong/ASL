@@ -2,14 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import CameraFeed from './cameraFeed';
-
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
 
 interface Sign {
   label: string
-  image: string
+	media: string // Video or image URL
+	hasMotion?: boolean
 	learned?: boolean
 }
 
@@ -28,15 +28,16 @@ export default function LearnMode() {
 
 	const [signs, setSigns] = useState<Sign[]>(() => {
 		const initialSigns: Sign[] = [
-			{ label: 'A', image: 'assets/asl_images/A.png' },
-			{ label: 'B', image: 'assets/asl_images/B.png' },
-			{ label: 'C', image: 'assets/asl_images/C.png' },
-			{ label: 'D', image: 'assets/asl_images/D.png' },
-			{ label: 'E', image: 'assets/asl_images/E.png' },
-			{ label: 'F', image: 'assets/asl_images/F.png' },
-			{ label: 'G', image: 'assets/asl_images/G.png' },
-			{ label: 'H', image: 'assets/asl_images/H.png' },
-			{ label: 'I', image: 'assets/asl_images/I.png' },
+			{ label: 'A', media: 'assets/A.png' },
+			{ label: 'B', media: 'assets/B.png' },
+			{ label: 'C', media: 'assets/C.png' },
+			{ label: 'D', media: 'assets/D.png' },
+			{ label: 'E', media: 'assets/E.png' },
+			{ label: 'F', media: 'assets/F.png' },
+			{ label: 'G', media: 'assets/G.png' },
+			{ label: 'H', media: 'assets/H.png' },
+			{ label: 'I', media: 'assets/I.png' },
+			{ label: 'hello', media: 'assets/hello.mp4', hasMotion: true },
 		]
 		return initialSigns
 	})
@@ -57,43 +58,72 @@ export default function LearnMode() {
 						Be specific about finger and thumb positions.`
 	}
 
+	const handlePrediction = (json: { prediction: string; confidence: number }) => {
+		setPredictedSign(json.prediction)
+		setConfidence(json.confidence)
+
+		if (json.confidence > 0.8 && json.prediction === selected?.label) {
+			setSigns((prev) =>
+				prev.map((s) => s.label === selected.label ? { ...s, learned: true } : s)
+			)
+			setSelected((prev) => prev ? { ...prev, learned: true } : prev)
+			localStorage.setItem(`asl_learned_${selected?.label}`, 'true')
+		}
+	}
+
 	const handleStreamReady = (video: HTMLVideoElement) => {
 		if (!canvasRef.current) {
 			canvasRef.current = document.createElement('canvas')
 		}
 
+		const canvas = canvasRef.current
+		const frameBufferRef: string[] = []
+		const BUFFER_SIZE = 20
+
 		intervalRef.current = setInterval(async () => {
 			if (video.videoWidth === 0) return
 
-			const canvas = canvasRef.current!
 			canvas.width = video.videoWidth
 			canvas.height = video.videoHeight
 			canvas.getContext('2d')!.drawImage(video, 0, 0)
 
-			try {
-				const res = await fetch('http://127.0.0.1:5000/api/predict', {
-					method: 'POST',
-					mode: 'cors',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ image: canvas.toDataURL('image/jpeg') }),
-				})
+			if (selected?.hasMotion) {
+      // Buffer frames and send when full
+      frameBufferRef.push(canvas.toDataURL('image/jpeg'))
+      if (frameBufferRef.length < BUFFER_SIZE) return
 
-				const json = await res.json()
-				setPredictedSign(json.prediction)
-				setConfidence(json.confidence)
+      const frames = [...frameBufferRef]
+      frameBufferRef.length = 0 // clear buffer
 
-				if (json.confidence > 0.8 && json.prediction === selected?.label) {
-					// Update
-					setSigns((prev) =>
-						prev.map((s) => s.label === selected?.label ? { ...s, learned: true } : s)
-					)
-					setSelected((prev) => prev ? { ...prev, learned: true } : prev)
-					localStorage.setItem(`asl_learned_${selected?.label}`, 'true')
-				}
-			} catch (err) {
-				console.error('Prediction error:', err)
-			}
-		}, 800)
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/predict', {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frames }),
+        })
+        const json = await res.json()
+        handlePrediction(json)
+      } catch (err) {
+        console.error('Prediction error:', err)
+      }
+
+    } else {
+      // Single frame
+      try {
+        const res = await fetch('http://127.0.0.1:5000/api/predict', {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: canvas.toDataURL('image/jpeg') }),
+        })
+        const json = await res.json()
+        handlePrediction(json)
+      } catch (err) {
+        console.error('Prediction error:', err)
+      }
+    }
+		}, 100)
 	}
 
 	useEffect(() => {
@@ -112,14 +142,14 @@ export default function LearnMode() {
 
 			try {
 				// Check if image exists first
-				const check = await fetch(selected.image, { method: 'HEAD' })
+				const check = await fetch(selected.media, { method: 'HEAD' })
 				if (!check.ok) {
 					setInstructions('No image available for this sign.')
 					return
 				}
 
 				// Fetch the image and convert to base64
-				const res = await fetch(selected.image)
+				const res = await fetch(selected.media)
 				const blob = await res.blob()
 				const base64 = await new Promise<string>((resolve) => {
 					const reader = new FileReader()
@@ -199,11 +229,11 @@ export default function LearnMode() {
 
                 <h2 className="text-2xl font-bold text-white">{selected.label}</h2>
 								
-                <img
-                  src={selected.image}
-                  alt={`ASL sign for ${selected.label}`}
-                  className="w-48 h-48 object-contain rounded-lg"
-                />
+								{selected.media.endsWith('.mp4') ? (
+									<video src={selected.media} autoPlay loop className="w-48 h-48 object-contain rounded-lg" />
+								) : (
+									<img src={selected.media} alt={`ASL sign for ${selected.label}`} className="w-48 h-48 object-contain rounded-lg" />
+								)}
 
 								{/* Gemini instructions for sign */}
 								<div className="text-sm text-zinc-400 mt-2">
