@@ -37,6 +37,23 @@ export default function LearnMode() {
 			{ label: 'G', image: 'assets/asl_images/G.png' },
 			{ label: 'H', image: 'assets/asl_images/H.png' },
 			{ label: 'I', image: 'assets/asl_images/I.png' },
+			{ label: 'J', image: 'assets/asl_images/J.png' },
+			{ label: 'K', image: 'assets/asl_images/K.png' },
+			{ label: 'L', image: 'assets/asl_images/L.png' },
+			{ label: 'M', image: 'assets/asl_images/M.png' },
+			{ label: 'N', image: 'assets/asl_images/N.png' },
+			{ label: 'O', image: 'assets/asl_images/O.png' },
+			{ label: 'P', image: 'assets/asl_images/P.png' },
+			{ label: 'Q', image: 'assets/asl_images/Q.png' },
+			{ label: 'R', image: 'assets/asl_images/R.png' },
+			{ label: 'S', image: 'assets/asl_images/S.png' },
+			{ label: 'T', image: 'assets/asl_images/T.png' },
+			{ label: 'U', image: 'assets/asl_images/U.png' },
+			{ label: 'V', image: 'assets/asl_images/V.png' },
+			{ label: 'W', image: 'assets/asl_images/W.png' },
+			{ label: 'X', image: 'assets/asl_images/X.png' },
+			{ label: 'Y', image: 'assets/asl_images/Y.png' },
+			{ label: 'Z', image: 'assets/asl_images/Z.png' }
 		]
 		return initialSigns
 	})
@@ -82,7 +99,7 @@ export default function LearnMode() {
 				setPredictedSign(json.prediction)
 				setConfidence(json.confidence)
 
-				if (json.confidence > 0.8 && json.prediction === selected?.label) {
+				if (json.confidence > 0.5 && json.prediction === selected?.label) {
 					// Update
 					setSigns((prev) =>
 						prev.map((s) => s.label === selected?.label ? { ...s, learned: true } : s)
